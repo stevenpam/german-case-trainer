@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Kasus" />
+  <meta name="theme-color" content="#f5f4f0" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <title>German Case Trainer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #f5f4f0; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
+    #root { height: 100%; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const { useState, useEffect, useCallback } = React;
+
+const CASES = ["nom", "acc", "dat", "gen"];
+const CASE_LABELS = { nom: "Nominativ", acc: "Akkusativ", dat: "Dativ", gen: "Genitiv" };
+
+const S = [
+  // --- NOMINATIV ---
+  { b: "", h: "Der Mann", a: " kauft ein Buch.", g: "m", c: "nom", en: "The man buys a book.",
+    q: "Wer kauft das Buch?",
+    exp: "Der Mann is the subject — the person performing the action. The subject always takes the Nominativ." },
+  { b: "", h: "Die Frau", a: " liest die Zeitung.", g: "f", c: "nom", en: "The woman reads the newspaper.",
+    q: "Wer liest die Zeitung?",
+    exp: "Die Frau is the subject doing the reading. The subject always takes the Nominativ." },
+  { b: "", h: "Das Kind", a: " schläft.", g: "n", c: "nom", en: "The child sleeps.",
+    q: "Wer schläft?",
+    exp: "Das Kind is the subject. Subjects always take the Nominativ." },
+  { b: "", h: "Die Stadt", a: " ist sehr alt.", g: "f", c: "nom", en: "The city is very old.",
+    q: "Was ist sehr alt?",
+    exp: "Die Stadt is the subject linked by ist. After sein, the subject stays in the Nominativ." },
+  { b: "", h: "Das Buch", a: " liegt auf dem Tisch.", g: "n", c: "nom", en: "The book is on the table.",
+    q: "Was liegt auf dem Tisch?",
+    exp: "Das Buch is the subject. The subject always takes the Nominativ." },
+  { b: "", h: "Der Vater", a: " kocht das Essen.", g: "m", c: "nom", en: "The father cooks the meal.",
+    q: "Wer kocht das Essen?",
+    exp: "Der Vater is the subject performing the action. Subjects always take the Nominativ." },
+  { b: "", h: "Das Problem", a: " ist gelöst.", g: "n", c: "nom", en: "The problem is solved.",
+    q: "Was ist gelöst?",
+    exp: "Das Problem is the subject. After sein, the subject stays in the Nominativ." },
+  { b: "", h: "Der Freund", a: " wohnt in Berlin.", g: "m", c: "nom", en: "The friend lives in Berlin.",
+    q: "Wer wohnt in Berlin?",
+    exp: "Der Freund is the subject. The subject always takes the Nominativ." },
+  { b: "", h: "Die Mutter", a: " arbeitet heute.", g: "f", c: "nom", en: "The mother is working today.",
+    q: "Wer arbeitet heute?",
+    exp: "Die Mutter is the subject performing the action. Subjects always take the Nominativ." },
+  { b: "", h: "Das Geld", a: " liegt auf dem Tisch.", g: "n", c: "nom", en: "The money is on the table.",
+    q: "Was liegt auf dem Tisch?",
+    exp: "Das Geld is the subject. The subject always takes the Nominativ." },
+  { b: "Wer ist ", h: "der Chef", a: "?", g: "m", c: "nom", en: "Who is the boss?",
+    q: "Wer ist der Chef?",
+    exp: "der Chef is the predicate nominative — the complement after ist. After sein, both subject and complement stay in the Nominativ." },
+  { b: "Wann kommt ", h: "der Zug", a: "?", g: "m", c: "nom", en: "When does the train come?",
+    q: "Was kommt?",
+    exp: "der Zug is the subject. Even in a question, the subject takes the Nominativ." },
+  { b: "Wie heißt ", h: "die Straße", a: "?", g: "f", c: "nom", en: "What is the street called?",
+    q: "Was heißt so?",
+    exp: "die Straße is the subject of heißen. The subject always takes the Nominativ." },
+  { b: "Ist ", h: "das Wasser", a: " kalt?", g: "n", c: "nom", en: "Is the water cold?",
+    q: "Was ist kalt?",
+    exp: "das Wasser is the subject of ist. After sein, the subject stays in the Nominativ." },
+  { b: "Kommt ", h: "die Familie", a: " heute?", g: "f", c: "nom", en: "Is the family coming today?",
+    q: "Wer kommt heute?",
+    exp: "die Familie is the subject. The subject takes the Nominativ even in a yes/no question." },
+  { b: "Wann fängt ", h: "der Film", a: " an?", g: "m", c: "nom", en: "When does the film start?",
+    q: "Was fängt an?",
+    exp: "der Film is the subject — what is starting. The subject always takes the Nominativ." },
+  { b: "Ist ", h: "das Essen", a: " fertig?", g: "n", c: "nom", en: "Is the food ready?",
+    q: "Was ist fertig?",
+    exp: "das Essen is the subject of ist. After sein, the subject stays in the Nominativ." },
+  { b: "Warum ist ", h: "die Tür", a: " offen?", g: "f", c: "nom", en: "Why is the door open?",
+    q: "Was ist offen?",
+    exp: "die Tür is the subject of ist. After sein, the subject stays in the Nominativ." },
+  { b: "", h: "Ein Mann", a: " steht vor der Tür.", g: "m", c: "nom", en: "A man is standing at the door.",
+    q: "Wer steht vor der Tür?",
+    exp: "Ein Mann is the subject. Subjects always take the Nominativ. Masculine indefinite article in the Nominativ is ein." },
+  { b: "", h: "Eine Frau", a: " wartet draußen.", g: "f", c: "nom", en: "A woman is waiting outside.",
+    q: "Wer wartet draußen?",
+    exp: "Eine Frau is the subject. Subjects always take the Nominativ. Feminine indefinite article in the Nominativ is eine." },
+  { b: "Ist das ", h: "ein Problem", a: "?", g: "n", c: "nom", en: "Is that a problem?",
+    q: "Was ist das?",
+    exp: "ein Problem is the predicate nominative after ist. After sein, the complement stays in the Nominativ. Neuter indefinite article in the Nominativ is ein." },
+  { b: "", h: "Ein Kind", a: " spielt im Garten.", g: "n", c: "nom", en: "A child is playing in the garden.",
+    q: "Wer spielt im Garten?",
+    exp: "Ein Kind is the subject. Neuter indefinite article in the Nominativ is ein — same form as masculine, but the noun gender tells them apart." },
+
+  // --- AKKUSATIV ---
+  { b: "Ich sehe ", h: "den Mann", a: ".", g: "m", c: "acc", en: "I see the man.",
+    q: "Wen sehe ich?",
+    exp: "den Mann is the direct object — what is being seen. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Er kauft ", h: "das Buch", a: ".", g: "n", c: "acc", en: "He buys the book.",
+    q: "Was kauft er?",
+    exp: "das Buch is the direct object. Direct objects take the Akkusativ. Neuter nouns don't change: das stays das." },
+  { b: "Sie besucht ", h: "die Frau", a: ".", g: "f", c: "acc", en: "She visits the woman.",
+    q: "Wen besucht sie?",
+    exp: "die Frau is the direct object. Direct objects take the Akkusativ. Feminine nouns don't change: die stays die." },
+  { b: "Wir brauchen ", h: "das Geld", a: ".", g: "n", c: "acc", en: "We need the money.",
+    q: "Was brauchen wir?",
+    exp: "das Geld is the direct object. Direct objects take the Akkusativ. Neuter nouns don't change." },
+  { b: "Sie kennt ", h: "die Stadt", a: " gut.", g: "f", c: "acc", en: "She knows the city well.",
+    q: "Was kennt sie?",
+    exp: "die Stadt is the direct object. Direct objects take the Akkusativ. Feminine nouns don't change." },
+  { b: "Ich lese ", h: "den Text", a: ".", g: "m", c: "acc", en: "I read the text.",
+    q: "Was lese ich?",
+    exp: "den Text is the direct object. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Er versteht ", h: "die Frage", a: " nicht.", g: "f", c: "acc", en: "He doesn't understand the question.",
+    q: "Was versteht er nicht?",
+    exp: "die Frage is the direct object. Direct objects take the Akkusativ. Feminine nouns don't change." },
+  { b: "Sie sucht ", h: "den Weg", a: ".", g: "m", c: "acc", en: "She is looking for the way.",
+    q: "Was sucht sie?",
+    exp: "den Weg is the direct object. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Kennst du ", h: "den Vater", a: "?", g: "m", c: "acc", en: "Do you know the father?",
+    q: "Wen kennst du?",
+    exp: "den Vater is the direct object — who is being known. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Hast du ", h: "das Geld", a: " gefunden?", g: "n", c: "acc", en: "Did you find the money?",
+    q: "Was hast du gefunden?",
+    exp: "das Geld is the direct object — what was found. Direct objects take the Akkusativ. Neuter nouns don't change." },
+  { b: "Rufst du ", h: "den Arzt", a: " an?", g: "m", c: "acc", en: "Are you calling the doctor?",
+    q: "Wen rufst du an?",
+    exp: "den Arzt is the direct object — who is being called. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Hörst du ", h: "die Musik", a: "?", g: "f", c: "acc", en: "Do you hear the music?",
+    q: "Was hörst du?",
+    exp: "die Musik is the direct object — what is heard. Direct objects take the Akkusativ. Feminine nouns don't change." },
+  { b: "Siehst du ", h: "den Mond", a: "?", g: "m", c: "acc", en: "Do you see the moon?",
+    q: "Was siehst du?",
+    exp: "den Mond is the direct object. Direct objects take the Akkusativ. Masculine nouns change: der → den." },
+  { b: "Er trinkt ", h: "das Wasser", a: ".", g: "n", c: "acc", en: "He drinks the water.",
+    q: "Was trinkt er?",
+    exp: "das Wasser is the direct object — what is drunk. Direct objects take the Akkusativ. Neuter nouns don't change." },
+  { b: "Öffnest du ", h: "das Fenster", a: "?", g: "n", c: "acc", en: "Are you opening the window?",
+    q: "Was öffnest du?",
+    exp: "das Fenster is the direct object — what is being opened. Direct objects take the Akkusativ. Neuter nouns don't change." },
+  { b: "Wir brauchen ", h: "die Hilfe", a: ".", g: "f", c: "acc", en: "We need the help.",
+    q: "Was brauchen wir?",
+    exp: "die Hilfe is the direct object. Direct objects take the Akkusativ. Feminine nouns don't change." },
+  { b: "Ich suche ", h: "einen Arzt", a: ".", g: "m", c: "acc", en: "I'm looking for a doctor.",
+    q: "Wen suche ich?",
+    exp: "einen Arzt is the direct object. Direct objects take the Akkusativ. Masculine indefinite article changes: ein → einen in the Akkusativ." },
+  { b: "Hast du ", h: "eine Idee", a: "?", g: "f", c: "acc", en: "Do you have an idea?",
+    q: "Was hast du?",
+    exp: "eine Idee is the direct object. Direct objects take the Akkusativ. Feminine indefinite article doesn't change: eine stays eine." },
+  { b: "Er kauft ", h: "ein Auto", a: ".", g: "n", c: "acc", en: "He buys a car.",
+    q: "Was kauft er?",
+    exp: "ein Auto is the direct object. Direct objects take the Akkusativ. Neuter indefinite article doesn't change: ein stays ein." },
+  { b: "Brauchst du ", h: "einen Stift", a: "?", g: "m", c: "acc", en: "Do you need a pen?",
+    q: "Was brauchst du?",
+    exp: "einen Stift is the direct object. Direct objects take the Akkusativ. Masculine indefinite article changes: ein → einen." },
+  { b: "Ich habe ", h: "eine Frage", a: ".", g: "f", c: "acc", en: "I have a question.",
+    q: "Was habe ich?",
+    exp: "eine Frage is the direct object. Direct objects take the Akkusativ. Feminine indefinite article stays eine." },
+  { b: "Siehst du ", h: "mich", a: "?", g: "", c: "acc", en: "Do you see me?",
+    q: "Wen siehst du?",
+    exp: "mich is the first-person singular accusative pronoun — the direct object. Just as den Mann takes the Akkusativ, so does mich. ich → mich in the Akkusativ." },
+  { b: "Ich sehe ", h: "ihn", a: " jeden Tag.", g: "", c: "acc", en: "I see him every day.",
+    q: "Wen sehe ich?",
+    exp: "ihn is the third-person masculine accusative pronoun. Just as den Mann takes the Akkusativ as a direct object, so does ihn. er → ihn in the Akkusativ." },
+  { b: "Er liebt ", h: "sie", a: ".", g: "", c: "acc", en: "He loves her.",
+    q: "Wen liebt er?",
+    exp: "sie here is the third-person feminine accusative pronoun — the direct object. The sentence structure (subject + verb + object) makes the accusative clear. sie → sie in the Akkusativ (unchanged)." },
+  { b: "Sie versteht ", h: "uns", a: " nicht.", g: "", c: "acc", en: "She doesn't understand us.",
+    q: "Wen versteht sie nicht?",
+    exp: "uns is the first-person plural accusative pronoun — the direct object. wir → uns in the Akkusativ." },
+  { b: "Rufst du ", h: "mich", a: " an?", g: "", c: "acc", en: "Are you calling me?",
+    q: "Wen rufst du an?",
+    exp: "mich is the first-person singular accusative pronoun. The person being called is the direct object, which takes the Akkusativ. ich → mich." },
+  { b: "Kennst du ", h: "ihn", a: "?", g: "", c: "acc", en: "Do you know him?",
+    q: "Wen kennst du?",
+    exp: "ihn is the third-person masculine accusative pronoun — the direct object of kennen. er → ihn in the Akkusativ." },
+
+  // --- DATIV ---
+  { b: "Ich gebe ", h: "dem Kind", a: " ein Geschenk.", g: "n", c: "dat", en: "I give the child a present.",
+    q: "Wem gebe ich ein Geschenk?",
+    exp: "dem Kind is the indirect object — the recipient of the gift. Indirect objects take the Dativ. Neuter nouns change: das → dem." },
+  { b: "Das Buch gehört ", h: "dem Mann", a: ".", g: "m", c: "dat", en: "The book belongs to the man.",
+    q: "Wem gehört das Buch?",
+    exp: "gehören always takes the Dativ. Masculine nouns change: der → dem." },
+  { b: "Sie dankt ", h: "dem Vater", a: ".", g: "m", c: "dat", en: "She thanks the father.",
+    q: "Wem dankt sie?",
+    exp: "danken always takes the Dativ — the person thanked is a Dativ object. Masculine: der → dem." },
+  { b: "Das Geschenk gefällt ", h: "der Mutter", a: ".", g: "f", c: "dat", en: "The mother likes the present.",
+    q: "Wem gefällt das Geschenk?",
+    exp: "gefallen takes the Dativ — the person who likes something is the Dativ object. Feminine: die → der." },
+  { b: "Das gehört ", h: "der Gruppe", a: ".", g: "f", c: "dat", en: "That belongs to the group.",
+    q: "Wem gehört das?",
+    exp: "gehören always takes the Dativ. Feminine nouns change: die → der." },
+  { b: "Schreibst du ", h: "dem Freund", a: " eine Nachricht?", g: "m", c: "dat", en: "Are you writing your friend a message?",
+    q: "Wem schreibst du eine Nachricht?",
+    exp: "dem Freund is the indirect object — the recipient of the message. Indirect objects take the Dativ. Masculine: der → dem." },
+  { b: "Gehört dieses Buch ", h: "der Lehrerin", a: "?", g: "f", c: "dat", en: "Does this book belong to the teacher?",
+    q: "Wem gehört dieses Buch?",
+    exp: "gehören always takes the Dativ. Feminine: die → der." },
+  { b: "Er hilft ", h: "der Frau", a: ".", g: "f", c: "dat", en: "He helps the woman.",
+    q: "Wem hilft er?",
+    exp: "helfen always governs the Dativ — the person helped is never a direct object in German. Feminine: die → der." },
+  { b: "Kannst du ", h: "dem Kind", a: " helfen?", g: "n", c: "dat", en: "Can you help the child?",
+    q: "Wem kannst du helfen?",
+    exp: "helfen always takes the Dativ. Neuter: das → dem." },
+  { b: "Glaubst du ", h: "dem Arzt", a: "?", g: "m", c: "dat", en: "Do you believe the doctor?",
+    q: "Wem glaubst du?",
+    exp: "glauben (to believe someone) takes the Dativ for the person believed. Masculine: der → dem." },
+  { b: "Er antwortet ", h: "dem Lehrer", a: ".", g: "m", c: "dat", en: "He answers the teacher.",
+    q: "Wem antwortet er?",
+    exp: "antworten always takes the Dativ. Masculine: der → dem." },
+  { b: "Passt das ", h: "der Frau", a: "?", g: "f", c: "dat", en: "Does that suit the woman?",
+    q: "Wem passt das?",
+    exp: "passen (to suit) takes the Dativ for the person it suits. Feminine: die → der." },
+  { b: "Er fehlt ", h: "dem Kind", a: ".", g: "n", c: "dat", en: "The child misses him.",
+    q: "Wem fehlt er?",
+    exp: "fehlen (to be missed) takes the Dativ for the person who feels the absence. Note: the grammar is the reverse of English — the missing person is the subject, and the one who misses them takes the Dativ. Neuter: das → dem." },
+  { b: "Vertraust du ", h: "dem Freund", a: "?", g: "m", c: "dat", en: "Do you trust the friend?",
+    q: "Wem vertraust du?",
+    exp: "vertrauen always takes the Dativ. Masculine: der → dem." },
+  { b: "Folgt er ", h: "dem Mann", a: "?", g: "m", c: "dat", en: "Is he following the man?",
+    q: "Wem folgt er?",
+    exp: "folgen always takes the Dativ. Masculine: der → dem." },
+  { b: "Bist du ", h: "der Frau", a: " begegnet?", g: "f", c: "dat", en: "Did you encounter the woman?",
+    q: "Wem bist du begegnet?",
+    exp: "begegnen always takes the Dativ. Feminine: die → der." },
+  { b: "Das schadet ", h: "der Gesundheit", a: ".", g: "f", c: "dat", en: "That harms your health.",
+    q: "Was schadet der Gesundheit?",
+    exp: "schaden always takes the Dativ — the thing being harmed is never a direct object. Feminine: die → der." },
+  { b: "Das nützt ", h: "dem Schüler", a: " nichts.", g: "m", c: "dat", en: "That is of no use to the student.",
+    q: "Wem nützt das?",
+    exp: "nützen always takes the Dativ. Masculine: der → dem." },
+  { b: "Verzeiht er ", h: "dem Vater", a: "?", g: "m", c: "dat", en: "Does he forgive the father?",
+    q: "Wem verzeiht er?",
+    exp: "verzeihen always takes the Dativ — the person forgiven is never a direct object. Masculine: der → dem." },
+  { b: "Hörst du ", h: "dem Kind", a: " zu?", g: "n", c: "dat", en: "Are you listening to the child?",
+    q: "Wem hörst du zu?",
+    exp: "zuhören always takes the Dativ. Neuter: das → dem." },
+  { b: "Wir kommen aus ", h: "der Stadt", a: ".", g: "f", c: "dat", en: "We come from the city.",
+    q: "aus → always Dativ",
+    exp: "aus is a preposition that always takes the Dativ. Feminine: die → der." },
+  { b: "Er wohnt bei ", h: "einem Freund", a: ".", g: "m", c: "dat", en: "He lives with a friend.",
+    q: "bei → always Dativ",
+    exp: "bei always takes the Dativ. Masculine indefinite article changes: ein → einem." },
+  { b: "Er spricht mit ", h: "dem Kind", a: ".", g: "n", c: "dat", en: "He speaks with the child.",
+    q: "mit → always Dativ",
+    exp: "mit always takes the Dativ. Neuter: das → dem." },
+  { b: "Fährst du mit ", h: "dem Bus", a: "?", g: "m", c: "dat", en: "Are you going by bus?",
+    q: "mit → always Dativ",
+    exp: "mit always takes the Dativ. Masculine: der → dem." },
+  { b: "Außer ", h: "dem Vater", a: " ist niemand zu Hause.", g: "m", c: "dat", en: "Apart from the father, nobody is at home.",
+    q: "außer → always Dativ",
+    exp: "außer always takes the Dativ. Masculine: der → dem." },
+  { b: "Was machst du nach ", h: "der Schule", a: "?", g: "f", c: "dat", en: "What do you do after school?",
+    q: "nach → always Dativ",
+    exp: "nach (meaning 'after' in time expressions) always takes the Dativ. Feminine: die → der." },
+  { b: "Er lernt seit ", h: "einem Jahr", a: " Deutsch.", g: "n", c: "dat", en: "He has been learning German for a year.",
+    q: "seit → always Dativ",
+    exp: "seit always takes the Dativ. Neuter indefinite article changes: ein → einem." },
+  { b: "Das ist ein Geschenk von ", h: "der Mutter", a: ".", g: "f", c: "dat", en: "That is a present from the mother.",
+    q: "von → always Dativ",
+    exp: "von always takes the Dativ. Feminine: die → der. Note: von + Dativ is also how Germans replace the Genitiv in informal speech." },
+  { b: "Sie fährt zu ", h: "der Universität", a: ".", g: "f", c: "dat", en: "She travels to the university.",
+    q: "zu → always Dativ",
+    exp: "zu always takes the Dativ. Feminine: die → der. zu der is often contracted to zur in everyday speech." },
+  { b: "Er sitzt ", h: "dem Mann", a: " gegenüber.", g: "m", c: "dat", en: "He sits opposite the man.",
+    q: "gegenüber → always Dativ",
+    exp: "gegenüber always takes the Dativ. It can come before or after the noun. Masculine: der → dem." },
+  { b: "Ich gebe ", h: "einem Kind", a: " den Ball.", g: "n", c: "dat", en: "I give a child the ball.",
+    q: "Wem gebe ich den Ball?",
+    exp: "einem Kind is the indirect object — the recipient. Indirect objects take the Dativ. Neuter indefinite article changes: ein → einem." },
+  { b: "Er hilft ", h: "einer Frau", a: " mit dem Gepäck.", g: "f", c: "dat", en: "He helps a woman with the luggage.",
+    q: "Wem hilft er?",
+    exp: "helfen always takes the Dativ. Feminine indefinite article changes: eine → einer in the Dativ." },
+  { b: "Er vertraut ", h: "einem Freund", a: " blind.", g: "m", c: "dat", en: "He trusts a friend completely.",
+    q: "Wem vertraut er?",
+    exp: "vertrauen always takes the Dativ. Masculine indefinite article changes: ein → einem." },
+  { b: "Sie begegnet ", h: "einem Mann", a: " auf der Straße.", g: "m", c: "dat", en: "She encounters a man on the street.",
+    q: "Wem begegnet sie?",
+    exp: "begegnen always takes the Dativ. Masculine indefinite article changes: ein → einem." },
+  { b: "Kannst du ", h: "mir", a: " helfen?", g: "", c: "dat", en: "Can you help me?",
+    q: "Wem kannst du helfen?",
+    exp: "mir is the first-person singular dative pronoun. helfen always takes the Dativ. ich → mir in the Dativ." },
+  { b: "Das gefällt ", h: "mir", a: " sehr.", g: "", c: "dat", en: "I like that a lot. (That pleases me.)",
+    q: "Wem gefällt das?",
+    exp: "mir is the first-person singular dative pronoun. gefallen takes the Dativ for the person who likes something. ich → mir in the Dativ." },
+  { b: "Das gehört ", h: "ihm", a: ".", g: "", c: "dat", en: "That belongs to him.",
+    q: "Wem gehört das?",
+    exp: "ihm is the third-person masculine dative pronoun. gehören always takes the Dativ. er → ihm in the Dativ." },
+  { b: "Das gehört ", h: "ihr", a: ".", g: "", c: "dat", en: "That belongs to her.",
+    q: "Wem gehört das?",
+    exp: "ihr is the third-person feminine dative pronoun. gehören always takes the Dativ. sie → ihr in the Dativ. Note: ihr looks identical to the possessive pronoun ihr (her), but here it is a personal pronoun in the Dativ." },
+  { b: "Glaubst du ", h: "mir", a: "?", g: "", c: "dat", en: "Do you believe me?",
+    q: "Wem glaubst du?",
+    exp: "mir is the first-person singular dative pronoun. glauben takes the Dativ for the person believed. ich → mir." },
+  { b: "Er antwortet ", h: "ihr", a: " nicht.", g: "", c: "dat", en: "He doesn't answer her.",
+    q: "Wem antwortet er nicht?",
+    exp: "ihr is the third-person feminine dative pronoun. antworten always takes the Dativ. sie → ihr in the Dativ." },
+  { b: "Das schadet ", h: "dir", a: ".", g: "", c: "dat", en: "That is bad for you. (That harms you.)",
+    q: "Wem schadet das?",
+    exp: "dir is the second-person singular dative pronoun. schaden always takes the Dativ. du → dir in the Dativ." },
+  { b: "Er folgt ", h: "uns", a: ".", g: "", c: "dat", en: "He is following us.",
+    q: "Wem folgt er?",
+    exp: "uns is the first-person plural dative pronoun. folgen always takes the Dativ. wir → uns in the Dativ." },
+  { b: "Ich höre ", h: "dir", a: " zu.", g: "", c: "dat", en: "I'm listening to you.",
+    q: "Wem höre ich zu?",
+    exp: "dir is the second-person singular dative pronoun. zuhören always takes the Dativ. du → dir in the Dativ." },
+  { b: "Das nützt ", h: "mir", a: " nichts.", g: "", c: "dat", en: "That's no use to me.",
+    q: "Wem nützt das nichts?",
+    exp: "mir is the first-person singular dative pronoun. nützen always takes the Dativ. ich → mir in the Dativ." },
+
+  // --- GENITIV ---
+  { b: "Das ist das Auto ", h: "des Mannes", a: ".", g: "m", c: "gen", en: "That is the man's car.",
+    q: "Wessen Auto ist das?",
+    exp: "des Mannes shows possession. Masculine Genitiv: der → des, noun adds -es.",
+    spoken: "Das ist das Auto vom Mann." },
+  { b: "Die Tasche ", h: "der Frau", a: " ist rot.", g: "f", c: "gen", en: "The woman's bag is red.",
+    q: "Wessen Tasche ist rot?",
+    exp: "der Frau shows possession. Feminine Genitiv: die → der. The structure (noun + der Frau) signals possession, not Dativ.",
+    spoken: "Die Tasche von der Frau ist rot." },
+  { b: "Das Dach ", h: "des Hauses", a: " ist alt.", g: "n", c: "gen", en: "The roof of the house is old.",
+    q: "Wessen Dach ist alt?",
+    exp: "des Hauses shows which house the roof belongs to. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Das Dach vom Haus ist alt." },
+  { b: "Der Name ", h: "der Stadt", a: " ist bekannt.", g: "f", c: "gen", en: "The name of the city is well known.",
+    q: "Wessen Name ist bekannt?",
+    exp: "der Stadt shows which city's name is meant. Feminine Genitiv: die → der.",
+    spoken: "Der Name von der Stadt ist bekannt." },
+  { b: "Die Meinung ", h: "des Vaters", a: " ist wichtig.", g: "m", c: "gen", en: "The father's opinion is important.",
+    q: "Wessen Meinung ist wichtig?",
+    exp: "des Vaters shows whose opinion it is. Masculine Genitiv: der → des, noun adds -s.",
+    spoken: "Die Meinung vom Vater ist wichtig." },
+  { b: "Das Ende ", h: "des Krieges", a: " kam 1945.", g: "m", c: "gen", en: "The end of the war came in 1945.",
+    q: "Wessen Ende kam 1945?",
+    exp: "des Krieges shows which war's end is meant. Masculine Genitiv: der → des, noun adds -es.",
+    spoken: "Das Ende vom Krieg kam 1945." },
+  { b: "Die Sprache ", h: "des Landes", a: " ist Deutsch.", g: "n", c: "gen", en: "The language of the country is German.",
+    q: "Wessen Sprache ist Deutsch?",
+    exp: "des Landes shows which country's language is meant. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Die Sprache vom Land ist Deutsch." },
+  { b: "Der Anfang ", h: "des Buches", a: " ist spannend.", g: "n", c: "gen", en: "The beginning of the book is exciting.",
+    q: "Wessen Anfang ist spannend?",
+    exp: "des Buches shows which book's beginning is meant. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Der Anfang vom Buch ist spannend." },
+  { b: "Das Ergebnis ", h: "der Wahl", a: " war überraschend.", g: "f", c: "gen", en: "The result of the election was surprising.",
+    q: "Wessen Ergebnis war überraschend?",
+    exp: "der Wahl shows whose result it is. Feminine Genitiv: die → der. Feminine nouns don't add an ending.",
+    spoken: "Das Ergebnis von der Wahl war überraschend." },
+  { b: "Die Bedeutung ", h: "des Textes", a: " ist klar.", g: "m", c: "gen", en: "The meaning of the text is clear.",
+    q: "Wessen Bedeutung ist klar?",
+    exp: "des Textes shows which text's meaning is meant. Masculine Genitiv: der → des, noun adds -es.",
+    spoken: "Die Bedeutung vom Text ist klar." },
+  { b: "Ist das das Haus ", h: "des Lehrers", a: "?", g: "m", c: "gen", en: "Is that the teacher's house?",
+    q: "Wessen Haus ist das?",
+    exp: "des Lehrers shows possession — whose house it is. Masculine Genitiv: der → des, noun adds -s.",
+    spoken: "Ist das das Haus vom Lehrer?" },
+  { b: "Das Auto ", h: "der Lehrerin", a: " ist neu.", g: "f", c: "gen", en: "The teacher's car is new.",
+    q: "Wessen Auto ist neu?",
+    exp: "der Lehrerin shows whose car it is. The position after a noun (das Auto der Lehrerin) is the signature pattern of Genitiv possession. Feminine: die → der.",
+    spoken: "Das Auto von der Lehrerin ist neu." },
+  { b: "Kennst du den Namen ", h: "des Schülers", a: "?", g: "m", c: "gen", en: "Do you know the student's name?",
+    q: "Wessen Namen kennst du?",
+    exp: "des Schülers shows whose name it is. Masculine Genitiv: der → des, noun adds -s.",
+    spoken: "Kennst du den Namen vom Schüler?" },
+  { b: "Was ist die Hauptstadt ", h: "des Landes", a: "?", g: "n", c: "gen", en: "What is the capital of the country?",
+    q: "Wessen Hauptstadt ist das?",
+    exp: "des Landes shows which country's capital is meant. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Was ist die Hauptstadt vom Land?" },
+  { b: "Er kennt die Schwester ", h: "des Freundes", a: ".", g: "m", c: "gen", en: "He knows the friend's sister.",
+    q: "Wessen Schwester kennt er?",
+    exp: "des Freundes shows whose sister it is. Masculine Genitiv: der → des, noun adds -es.",
+    spoken: "Er kennt die Schwester vom Freund." },
+  { b: "Was ist der Preis ", h: "des Buches", a: "?", g: "n", c: "gen", en: "What is the price of the book?",
+    q: "Wessen Preis ist das?",
+    exp: "des Buches shows which book's price is meant. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Was ist der Preis vom Buch?" },
+  { b: "Die Farbe ", h: "des Autos", a: " gefällt mir.", g: "n", c: "gen", en: "I like the colour of the car.",
+    q: "Wessen Farbe gefällt mir?",
+    exp: "des Autos shows which car's colour is meant. Neuter Genitiv: das → des, noun adds -s.",
+    spoken: "Die Farbe vom Auto gefällt mir." },
+  { b: "Wer ist der Chef ", h: "des Unternehmens", a: "?", g: "n", c: "gen", en: "Who is the head of the company?",
+    q: "Wessen Chef ist das?",
+    exp: "des Unternehmens shows which company's head is meant. Neuter Genitiv: das → des, noun adds -s.",
+    spoken: "Wer ist der Chef vom Unternehmen?" },
+  { b: "Das ist das Ende ", h: "des Films", a: ".", g: "m", c: "gen", en: "This is the end of the film.",
+    q: "Wessen Ende ist das?",
+    exp: "des Films shows which film's end is meant. Masculine Genitiv: der → des, noun adds -s.",
+    spoken: "Das ist das Ende vom Film." },
+  { b: "Kennst du den Autor ", h: "des Textes", a: "?", g: "m", c: "gen", en: "Do you know the author of the text?",
+    q: "Wessen Autor kennst du?",
+    exp: "des Textes shows which text's author is meant. Masculine Genitiv: der → des, noun adds -es.",
+    spoken: "Kennst du den Autor vom Text?" },
+  { b: "Das ist der Beginn ", h: "des Jahres", a: ".", g: "n", c: "gen", en: "This is the beginning of the year.",
+    q: "Wessen Beginn ist das?",
+    exp: "des Jahres shows which year's beginning is meant. Neuter Genitiv: das → des, noun adds -es.",
+    spoken: "Das ist der Beginn vom Jahr." },
+];
+
+const MODES = [
+  { id: "all", label: "alle" },
+  { id: "nom", label: "nom" },
+  { id: "acc", label: "akk" },
+  { id: "dat", label: "dat" },
+  { id: "gen", label: "gen" },
+];
+
+function weight(s) {
+  if (!s) return 4;
+  const t = s.c + s.w;
+  if (!t) return 4;
+  return 1 + (s.w / t) * 4;
+}
+
+function pickWeighted(items, weightFn) {
+  const weights = items.map(weightFn);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[0];
+}
+
+function loadStats() {
+  try {
+    const raw = localStorage.getItem("case_stats_v2");
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function saveStats(s) {
+  try { localStorage.setItem("case_stats_v2", JSON.stringify(s)); } catch (e) {}
+}
+
+function App() {
+  const [mode, setMode] = useState("all");
+  const [stats, setStats] = useState(() => loadStats());
+  const [currentIdx, setCurrentIdx] = useState(null);
+  const [answered, setAnswered] = useState(false);
+  const [chosenCase, setChosenCase] = useState(null);
+  const [sessionTotal, setSessionTotal] = useState(0);
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+
+  const pool = useCallback((m) => S.map((_, i) => i).filter(i => m === "all" || S[i].c === m), []);
+
+  const nextCard = useCallback((m, st) => {
+    const p = pool(m);
+    const idx = pickWeighted(p, i => weight(st[i]));
+    setCurrentIdx(idx);
+    setAnswered(false);
+    setChosenCase(null);
+  }, [pool]);
+
+  useEffect(() => { nextCard(mode, stats); }, []); // eslint-disable-line
+
+  const handleMode = (m) => {
+    setMode(m);
+    nextCard(m, stats);
+    setSessionTotal(0);
+    setSessionCorrect(0);
+  };
+
+  const handleGuess = (c) => {
+    if (answered) return;
+    setAnswered(true);
+    setChosenCase(c);
+    const item = S[currentIdx];
+    const correct = c === item.c;
+    setSessionTotal(t => t + 1);
+    if (correct) setSessionCorrect(sc => sc + 1);
+    const prev = stats[currentIdx] || { c: 0, w: 0 };
+    const newStats = { ...stats, [currentIdx]: { c: prev.c + (correct ? 1 : 0), w: prev.w + (correct ? 0 : 1) } };
+    setStats(newStats);
+    saveStats(newStats);
+  };
+
+  const handleNext = () => nextCard(mode, stats);
+
+  const p = pool(mode);
+  const seen = p.filter(i => stats[i]).length;
+  const progress = p.length ? Math.round(seen / p.length * 100) : 0;
+  const accuracy = sessionTotal > 0 ? Math.round(sessionCorrect / sessionTotal * 100) + "%" : "—";
+  const item = currentIdx !== null ? S[currentIdx] : null;
+  const isWrong = answered && item && chosenCase !== item.c;
+  const isRight = answered && item && chosenCase === item.c;
+
+  const ec = isRight
+    ? { bg: "#F4FAF0", border: "#a0d080", head: "#3B6D11", body: "#2d5a0e", sub: "#4a8020", q: "#1a4a0a" }
+    : { bg: "#FFF8F0", border: "#f0c080", head: "#9a6000", body: "#7a5000", sub: "#a07030", q: "#7a4800" };
+
+  const weakItems = p
+    .filter(i => stats[i] && stats[i].c + stats[i].w >= 3 && stats[i].w / (stats[i].c + stats[i].w) >= 0.4)
+    .sort((a, b) => (stats[b].w / (stats[b].c + stats[b].w)) - (stats[a].w / (stats[a].c + stats[a].w)))
+    .slice(0, 6);
+
+  return React.createElement('div', { style: { fontFamily: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", maxWidth: 480, margin: "0 auto", padding: "env(safe-area-inset-top, 1rem) 1rem 2rem" } },
+    // Mode switcher
+    React.createElement('div', { style: { display: "flex", gap: 5, marginBottom: "1.5rem", marginTop: "1rem" } },
+      MODES.map(m => React.createElement('button', {
+        key: m.id, onClick: () => handleMode(m.id),
+        style: { flex: 1, padding: "0.45rem 0.2rem", fontSize: 12, fontFamily: "inherit", border: "0.5px solid", borderRadius: 8, cursor: "pointer", background: mode === m.id ? "white" : "#c8c6c0", color: mode === m.id ? "#111" : "#555", borderColor: mode === m.id ? "#888" : "#b0aea8", fontWeight: mode === m.id ? 500 : 400 }
+      }, m.label))
+    ),
+    // Stats
+    React.createElement('div', { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: "1.5rem" } },
+      [["session", sessionTotal], ["correct", sessionCorrect], ["accuracy", accuracy]].map(([label, val]) =>
+        React.createElement('div', { key: label, style: { background: "#eeede8", borderRadius: 8, padding: "0.6rem", textAlign: "center" } },
+          React.createElement('div', { style: { fontSize: 11, color: "#888", marginBottom: 2 } }, label),
+          React.createElement('div', { style: { fontSize: 18, fontWeight: 500 } }, val)
+        )
+      )
+    ),
+    // Progress bar
+    React.createElement('div', { style: { background: "#dddbd5", borderRadius: 4, height: 4, overflow: "hidden", marginBottom: "1.5rem" } },
+      React.createElement('div', { style: { height: 4, background: "#1D9E75", width: progress + "%", transition: "width 0.3s", borderRadius: 4 } })
+    ),
+    // Card
+    React.createElement('div', { style: { background: "white", border: "0.5px solid #e0deda", borderRadius: 12, padding: "1.5rem", textAlign: "center", marginBottom: "1.25rem" } },
+      React.createElement('div', { style: { fontSize: 11, color: "#aaa", letterSpacing: "0.05em", marginBottom: 12 } }, "was ist der Fall?"),
+      item && React.createElement('div', { style: { fontSize: 19, fontWeight: 500, lineHeight: 1.6, marginBottom: 8 } },
+        item.b && React.createElement('span', null, item.b),
+        React.createElement('span', { style: { color: "#185FA5", borderBottom: "2px solid #185FA5", paddingBottom: 1 } },
+          item.h,
+          item.g && React.createElement('sup', { style: { fontSize: 10, color: "#185FA5", fontWeight: 400, marginLeft: 2 } }, item.g)
+        ),
+        React.createElement('span', null, item.a)
+      ),
+      item && React.createElement('div', { style: { fontSize: 13, color: "#aaa", fontStyle: "italic", marginBottom: answered ? 16 : 0 } }, item.en),
+      answered && item && React.createElement('div', { style: { marginTop: 4, padding: "12px 14px", borderRadius: 8, textAlign: "left", background: ec.bg, border: `0.5px solid ${ec.border}` } },
+        React.createElement('div', { style: { fontSize: 12, fontWeight: 500, marginBottom: 6, color: ec.head } },
+          isRight ? "Richtig — " : "Das ist der ", CASE_LABELS[item.c], "."
+        ),
+        React.createElement('div', { style: { fontSize: 11, color: ec.sub, marginBottom: 6 } },
+          "wer? who · wen? whom · wem? to/for whom · wessen? whose"
+        ),
+        React.createElement('div', { style: { fontSize: 13, fontStyle: "italic", fontWeight: 500, color: ec.q, marginBottom: 8, paddingBottom: 8, borderBottom: `0.5px solid ${ec.border}` } }, item.q),
+        React.createElement('div', { style: { fontSize: 13, lineHeight: 1.6, color: ec.body } }, item.exp),
+        item.spoken && React.createElement('div', { style: { marginTop: 10, paddingTop: 10, borderTop: `0.5px solid ${ec.border}` } },
+          React.createElement('div', { style: { fontSize: 11, fontWeight: 500, color: ec.head, marginBottom: 3 } }, "In informal spoken German:"),
+          React.createElement('div', { style: { fontSize: 13, fontStyle: "italic", color: ec.body } }, item.spoken),
+          React.createElement('div', { style: { fontSize: 12, color: ec.sub, marginTop: 3 } }, "The Genitiv is replaced with von + Dativ, which is standard in everyday speech.")
+        )
+      )
+    ),
+    // Answer buttons
+    React.createElement('div', { style: { display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: "1.25rem" } },
+      CASES.map(c => React.createElement('button', {
+        key: c, onClick: () => handleGuess(c), disabled: answered,
+        style: { padding: "0.7rem", fontSize: 14, fontFamily: "inherit", borderRadius: 8, cursor: answered ? "default" : "pointer",
+          ...(answered
+            ? c === item?.c ? { background: "#EAF3DE", border: "1px solid #639922", color: "#3B6D11" }
+              : c === chosenCase ? { background: "#FCEBEB", border: "1px solid #E24B4A", color: "#A32D2D" }
+              : { background: "white", border: "0.5px solid #ddd", color: "#bbb" }
+            : { background: "white", border: "0.5px solid #ccc", color: "#111" }) }
+      }, CASE_LABELS[c]))
+    ),
+    // Weiter button
+    answered && React.createElement('div', { style: { textAlign: "center", marginBottom: "1rem" } },
+      React.createElement('button', {
+        onClick: handleNext,
+        style: { padding: "0.6rem 2.5rem", fontSize: 14, fontFamily: "inherit", border: "0.5px solid #888", borderRadius: 8, background: "white", color: "#111", cursor: "pointer", fontWeight: 500 }
+      }, "weiter →")
+    ),
+    // Weak items
+    weakItems.length > 0 && React.createElement('div', { style: { marginTop: "1.5rem" } },
+      React.createElement('div', { style: { fontSize: 12, color: "#aaa", marginBottom: 8 } }, "needs work"),
+      React.createElement('div', { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+        weakItems.map(i => React.createElement('span', {
+          key: i, style: { fontSize: 12, background: "#eeede8", borderRadius: 8, padding: "3px 8px", color: "#666" }
+        }, S[i].h, React.createElement('span', { style: { opacity: 0.6 } }, " (", CASE_LABELS[S[i].c].toLowerCase(), ")")))
+      )
+    ),
+    React.createElement('div', { style: { fontSize: 12, color: "#aaa", textAlign: "center", marginTop: "1rem" } },
+      seen + " of " + p.length + " sentences seen"
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+}
+</script>
+</body>
+</html>
